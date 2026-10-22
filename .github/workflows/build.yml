@@ -1,0 +1,45 @@
+name: Build OpenDoJa Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      # The repo lists Chinese mirrors first; GitHub's servers are outside China,
+      # so use the official Google/Maven servers directly to avoid slow timeouts.
+      - name: Use official package servers
+        run: sed -i '/maven.aliyun.com/d' settings.gradle
+
+      # Keep the same signing key between builds so new APKs can update
+      # the installed app instead of needing an uninstall first.
+      - name: Restore signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: opendoja-debug-keystore
+
+      - name: Build the APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: opendoja-android-apk
+          path: app/build/outputs/apk/debug/*.apk
+          
